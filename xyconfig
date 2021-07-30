@@ -1,0 +1,151 @@
+#!/bin/sh
+
+cmd=$(basename "$0")
+cmdfile=$(readlink -f "$0")
+cmdpath=$(dirname "$cmdfile")
+. "$cmdpath/environment"
+
+# use befor setting
+AH_ArgsMeta="
+# Usage: $cmd [ConfigPath] [Options]
+#   ConfigPath              ### it must a child path in \$XYSVERSION_HOME/config/.
+# Options:
+?   -j, --just-comments     ### just print comments
+?   -s, --save              ### save to '$RunningConfigFile'
+?   -l, --list              ### list all config path
+?   -h, --help              ### display this help and exit.
+" # args meta
+AH_ShowHelp="--help"
+AH_ShowVersion="--version"
+AH_DefaultHelpMeta="no"
+AH_VersionInfo=""
+AH_StrictParam="yes"
+AH_LeastParamCount=0
+# include args tools
+. "$XYSVERSION_HOME/lib/args-helper"
+. "$XYSVERSION_HOME/script/xyutil"
+
+# get args
+configPath="${AH_PARAMS[0]}"
+justPrintComments="${AH_SWITCHS['-j']}"
+save="${AH_SWITCHS['-s']}"
+list="${AH_SWITCHS['-l']}"
+tmpConfigFile="$XYSERVER_TEMP/tmpConfigFile"
+
+if [ -n "$list" ]; then
+    curdir=`pwd`
+    cd $XYSVERSION_HOME/config/
+    find -type d | sed s/\\.\\///g | egrep -v "^\.$"
+    cd $curdir
+    exit 0
+fi
+
+if [ ! -d "$XYSVERSION_HOME/config/$configPath" ]; then
+    echo Path \'$configPath\' not exists with tag \'$configPath\'.
+    exit 1
+fi
+
+function getConfigPathArr(){
+    tagArr=$(echo "$configPath" | sed s/\\//" "/g)
+    configFileArr=()
+    configFileArrR=()
+    tmp=""
+    # get path list
+    # a/b/c -> a
+    #          a/b
+    #          a/b/c
+    for tag in $(echo "$configPath" | sed s/\\//" "/g)
+    do
+        if [ -z "$tmp" ]; then
+            path=$tag
+        else
+            path=$tmp/$tag
+        fi
+        configFileArr[${#configFileArr[@]}]=$path
+        tmp=$path
+    done
+    # revert arr
+    # like: a/b/c
+    #       a/b
+    #       c
+    for ((i=0;i<${#configFileArr[@]};i++))
+    do
+        configFileArrR[$(expr ${#configFileArr[@]} - $i)]="${configFileArr[$i]}"
+    done
+    echo "${configFileArrR[*]}"
+}
+
+# a revert tree of config path
+pathArr=$(getConfigPathArr)
+defaultConfigPath="$XYSVERSION_HOME/config"
+
+# print json item beautiful
+function printJsonItem ( ) {
+    local jsonFileName="$1"
+    local c="$2"
+    local configfile=""
+    # d1/d2/d3 get file from d3,d2,d1
+    for item in $pathArr
+    do
+        configfile="$defaultConfigPath/$item/$jsonFileName"
+        if [ -f "$configfile" ]; then
+            break
+        fi
+    done
+    # if no target file, then get default file
+    if [ ! -f "$configfile" ]; then
+        configfile="$defaultConfigPath/$jsonFileName"
+    fi
+    printf "    // tag-path: $configfile\n"
+    if [ -z "$justPrintComments" ]; then
+        printf '    '
+        if [[ "1" != "$c" ]]; then
+            printf ','
+        fi
+        # print json property name
+        printf '"'$jsonFileName'":' | sed s/\.json//g 
+        # print json property value
+        sedcmd="cat $configfile"
+        for item in "${envvars[@]}"
+        do
+            key="${item%=*}"
+            value="${item#*=}"
+            value_str=$(toSedStr "$value")
+            sedcmd="$sedcmd | sed s/\\\$$key/\"$value_str\"/g"
+        done
+        eval $sedcmd | awk '{if(NR<2){print($0)}else{print("    "$0)}}'
+    fi
+}
+
+# clean the tmp temp config file
+cat /dev/null > "$tmpConfigFile"
+
+# print config string to temp config file
+printf "// config-path: '$configPath'\n" >> "$tmpConfigFile"
+printf "{\n" >> "$tmpConfigFile"
+c="1"
+for item in $(ls $defaultConfigPath)
+do
+    if [ -f $defaultConfigPath/$item ]; then
+        printJsonItem "$item" "$c" >> "$tmpConfigFile"
+        c="1$c"
+    fi
+done
+printf "}\n" >> "$tmpConfigFile"
+
+# save to runtime config file
+if [ -n "$save" ]; then
+    runuser $XYSERVER_USER -c "
+        . $XYSVERSION_HOME/script/xyutil
+        cat \"$tmpConfigFile\" > \"$RunningConfigFile\"
+        saveVar \"$ConfigPathVarName\" \"$configPath\"
+        echo Make config use \'$configPath\'
+        echo Updated config file $RunningConfigFile
+        echo Set vars: $ConfigPathVarName=$configPath
+    "
+else
+    cat "$tmpConfigFile"
+fi
+
+# remove tmp file
+rm -f "$tmpConfigFile"

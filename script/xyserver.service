@@ -1,0 +1,18 @@
+[Unit]
+Description=xyserver - Good proxy
+Documentation=
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=root
+Group=root
+
+PIDFile=$XYSERVER_PID
+ExecStart=$XYSERVER_HOME/current/xyserver start
+ExecReload=$XYSERVER_HOME/current/xyserver restart
+ExecStop=$XYSERVER_HOME/current/xyserver stop
+
+[Install]
+WantedBy=multi-user.target

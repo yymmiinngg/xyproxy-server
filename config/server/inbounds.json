@@ -1,0 +1,46 @@
+[{
+    "port": 52001,
+    "protocol": "vmess",
+    "settings": {
+        "clients": [{
+            "id": "ea19b2b1-5871-47d2-90fd-f1c85a4e3ee1",
+            "alterId": 8
+        }]
+    }
+}, {
+    "port": 52002,
+    "protocol": "vmess",
+    "settings": {
+        "clients": [{
+            "id": "ea19b2b1-5871-47d2-90fd-f1c85a4e3ee1",
+            "alterId": 8
+        }]
+    }
+}, {
+    "port": 52003,
+    "protocol": "vmess",
+    "settings": {
+        "clients": [{
+            "id": "ea19b2b1-5871-47d2-90fd-f1c85a4e3ee1",
+            "alterId": 8
+        }]
+    }
+}, {
+    "port": 52004,
+    "protocol": "vmess",
+    "settings": {
+        "clients": [{
+            "id": "ea19b2b1-5871-47d2-90fd-f1c85a4e3ee1",
+            "alterId": 8
+        }]
+    }
+}, {
+    "port": 52005,
+    "protocol": "vmess",
+    "settings": {
+        "clients": [{
+            "id": "ea19b2b1-5871-47d2-90fd-f1c85a4e3ee1",
+            "alterId": 8
+        }]
+    }
+}]

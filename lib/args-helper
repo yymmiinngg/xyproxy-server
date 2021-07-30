@@ -1,0 +1,294 @@
+#!/bin/sh
+
+. $(dirname $BASH_SOURCE)/array-utils
+
+if [ -n "$AHC_NULL" ]; then
+    echo "Can not source args-helper file more than 2 times." >&2
+    exit 1     
+fi
+
+readonly AHC_NULL="_AHC_NULL_"
+
+ahv_inputArgs=()
+
+ahv_argsMeta="helps:
+?   --help      ### display this help and exit
+?   --version   ### output version information and exit"
+ahv_showHelp=""
+ahv_showVersion=""
+ahv_versionInfo="no version information"
+ahv_strictParam="yes"
+ahv_leastParamCount=0
+
+declare -A ahv_options=()
+
+declare -A ahv_switchs=()
+
+declare -A ahv_metaOptions=()
+
+ahv_metaOptionNames=()
+
+declare -A ahv_metaOptionType=()
+
+declare -A ahv_metaOptionDesc=()
+
+declare -A ahv_metaOptionMust=()
+
+function ahf_trim() {
+    echo " $1 " | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g'
+}
+
+function ahf_initArgsMeta() {
+    local aht_lines=()
+    eval $( printf "$ahv_argsMeta" | cat | sed s/\\\"/\\\\\"/g | awk '{ printf("aht_lines[${#aht_lines[*]}]=\"%s\"\n",$0); }' )
+
+    for((i=0;i<=${#aht_lines[*]};i++)); do 
+        local aht_line="${aht_lines[$i]}"
+        local aht_optionType="${aht_line%% *}"
+        local aht_lineElse="${aht_line#* }"
+        if [ "$aht_optionType" == "#" ]; then
+            continue;
+        fi
+
+        local aht_optionSec="${aht_lineElse%%###*}"
+        local aht_optionDesc="${aht_lineElse#*###}"
+
+        local aht_option=`ahf_trim "${aht_optionSec%%,*}"`
+        local aht_optionAliases=`ahf_trim "${aht_optionSec#*,}"`
+
+        if [ "$aht_option" == "$aht_optionAliases" ]; then 
+            aht_optionAliases=""
+        fi
+
+        if [ -n "$aht_option" ]; then
+            ahv_metaOptions["$aht_option"]="$aht_optionAliases"
+            ahv_metaOptionType["$aht_option"]="$aht_optionType"
+            ahv_metaOptionDesc["$aht_option"]="$aht_optionDesc"
+            ahv_metaOptionNames[${#ahv_metaOptionNames[*]}]="$aht_option"
+            if [ "*" = "$aht_optionType" ]; then
+                ahv_metaOptionMust["$aht_option"]="yes"
+            fi
+        fi
+
+        if [ -n "$aht_optionAliases" ]; then
+            ahv_metaOptions["$aht_optionAliases"]="$aht_option"
+            ahv_metaOptionType["$aht_optionAliases"]="$aht_optionType"
+            ahv_metaOptionNames[${#ahv_metaOptionNames[*]}]="$aht_optionAliases"
+        fi
+
+    done
+}
+
+function avf_findOutOption() {
+    local aht_returnNext=0
+    local aht_idx=-1
+    _return_=$AHC_NULL
+    for item in "${ahv_inputArgs[@]}"; do 
+        aht_idx=$[$aht_idx + 1]
+        if [ $aht_returnNext -eq 1 ]; then
+            aht_returnNext=0
+            if [ 'yes' != $(ARR_indexOf "${ahv_metaOptionNames[*]}" "$item") ]; then
+                _return_="$item"
+                ahv_inputArgs[$aht_idx]=""
+            fi
+            continue
+        fi
+        if [ "$item" = "$_name_" ]; then
+            aht_returnNext=1
+            ahv_inputArgs[$aht_idx]=""
+            continue
+        fi
+        local aht_key=${item%%=*}
+        local aht_value=${item#*=}
+        if [ "$aht_key" = "$_name_" ]; then
+            _return_="$aht_value"
+            ahv_inputArgs[$aht_idx]=""
+            continue
+        fi
+    done
+}
+
+function ahf_findOutSwitch() {
+    local aht_idx=-1
+    local aht_count=0
+    for item in "${ahv_inputArgs[@]}"; do 
+        aht_idx=$[$aht_idx + 1]
+        if [ "$item" = "$_name_" ]; then
+            ahv_inputArgs[$aht_idx]=""
+            aht_count=$[$aht_count + 1]
+            continue
+        fi
+    done
+    _return_=$aht_count
+}
+
+function AH_PrintInfo() {
+    if [ -n "$1" ]; then
+        printf "$1\n"
+    fi
+    if [ -n "$ahv_showHelp" ]; then
+        printf "Try '$0 $ahv_showHelp' for more information.\n"
+    fi
+}
+
+function AH_PrintHelp() {
+    if [ -n "$1" ]; then
+        printf "$1\n"
+    fi
+    printf "$ahv_argsMeta" | cat | awk '{  printf($0"\n"); }' | egrep -o ".*" | sed s/^[+\?\#\*]//g | sed s/^[\ ]//g | sed s/\#\#\#//g 
+}
+
+function AH_PrintVersion() {
+    printf "$ahv_versionInfo\n";
+}
+
+function AH_PrintArgs() {
+    echo AH_OPTIONS:
+    for aht_key in "${!AH_OPTIONS[@]}"; do
+        echo "  \${AH_OPTIONS['$aht_key']} : ${AH_OPTIONS["$aht_key"]}"
+    done
+
+    echo AH_SWITCHS:
+    for aht_key in "${!AH_SWITCHS[@]}"; do
+        echo "  \${AH_SWITCHS['$aht_key']} : ${AH_SWITCHS["$aht_key"]}"
+    done
+
+    echo AH_PARAMS:
+    local aht_idx=0
+    for aht_item in "${AH_PARAMS[@]}"; do
+        echo "  \${AH_PARAMS[$aht_idx]} : $aht_item"
+        aht_idx=$[$aht_idx + 1]
+    done
+}
+
+ahv_inputArgs=()
+{
+    for((i=1;i<=$#;i++)); do
+        eval 'aht_tmp=${'$i'}'
+        ahv_inputArgs[${#ahv_inputArgs[@]}]="$aht_tmp"
+    done
+}
+
+if [ -n "$AH_ArgsMeta" ]; then
+    if [ "yes" = "$AH_DefaultHelpMeta" ]; then
+        ahv_argsMeta="$AH_ArgsMeta\n$ahv_argsMeta"
+        ahv_showHelp="--help"
+        ahv_showVersion="--version"
+    else
+        ahv_argsMeta="$AH_ArgsMeta"
+    fi
+fi
+if [ -n "$AH_ShowHelp" ]; then
+    ahv_showHelp="$AH_ShowHelp"
+fi
+if [ -n "$AH_ShowVersion" ]; then
+    ahv_showVersion="$AH_ShowVersion"
+fi
+if [ -n "$AH_VersionInfo" ]; then
+    ahv_versionInfo="$AH_VersionInfo"
+fi
+if [ -n "$AH_StrictParam" ]; then
+    ahv_strictParam="$AH_StrictParam"
+fi
+if [ -n "$AH_LeastParamCount" ]; then
+    ahv_leastParamCount="$AH_LeastParamCount"
+fi
+
+{
+    ahf_initArgsMeta "$ahv_argsMeta"
+}
+for avt_key in "${!ahv_metaOptions[@]}"; do
+    avt_keyAliases="${ahv_metaOptions["$avt_key"]}"
+    if [ "+" = "${ahv_metaOptionType["$avt_key"]}" -o "*" = "${ahv_metaOptionType["$avt_key"]}" ]; then
+        {
+            _name_="$avt_key";
+            _return_=$AHC_NULL;
+            avf_findOutOption
+            avt_val="$_return_"
+        }
+        if [ "$AHC_NULL" = "$avt_val" ]; then 
+            continue;
+        fi
+        ahv_options["$avt_key"]="$avt_val"
+        if [ -n "$avt_keyAliases" ]; then
+            ahv_options["$avt_keyAliases"]="$avt_val"
+        fi
+    elif [ "?" = "${ahv_metaOptionType["$avt_key"]}" ]; then
+        {
+            _name_="$avt_key"; 
+            _return_=0;
+            ahf_findOutSwitch
+            avt_val=$_return_
+        }
+        if [ 0 -eq $avt_val ]; then 
+            continue;
+        fi
+        ahv_switchs["$avt_key"]="$avt_val"
+        if [ -n "$avt_keyAliases" ]; then
+            ahv_switchs["$avt_keyAliases"]="$avt_val"
+        fi
+    fi
+done
+
+declare -A AH_OPTIONS=()
+declare -A AH_SWITCHS=()
+declare -a AH_PARAMS=()
+
+for aht_key in "${!ahv_options[@]}"; do
+    AH_OPTIONS["$aht_key"]="${ahv_options["$aht_key"]}"
+done
+
+for aht_key in "${!ahv_switchs[@]}"; do
+    AH_SWITCHS["$aht_key"]="${ahv_switchs["$aht_key"]}"
+done
+
+for aht_item in "${ahv_inputArgs[@]}"; do
+    if [ -n "$aht_item" ]; then
+        AH_PARAMS[${#AH_PARAMS[@]}]="$aht_item"
+    fi
+done
+
+readonly AH_OPTIONS
+readonly AH_SWITCHS
+readonly AH_PARAMS
+
+if [ -n "${AH_SWITCHS["$ahv_showHelp"]}" ]; then
+    AH_PrintHelp 
+    exit 0;
+fi
+
+if [ -n "${AH_SWITCHS["$ahv_showVersion"]}" ]; then
+    AH_PrintVersion
+    exit 0;
+fi
+
+if [ "yes" = "$ahv_strictParam" ]; then
+    for aht_item in "${AH_PARAMS[@]}"; do
+        if [[ "$aht_item" == -* ]]; then
+            AH_PrintInfo "Unknown option '$aht_item'" >&2
+            exit 1
+        fi
+    done
+fi
+
+if [ 0 != $ahv_leastParamCount ]; then
+    if [ ${#AH_PARAMS[@]} -lt $ahv_leastParamCount ]; then 
+        AH_PrintInfo "Param count less then $ahv_leastParamCount" >&2
+        exit 1
+    fi
+fi
+
+ahv_mustInfo=""
+for aht_key in "${ahv_metaOptionNames[@]}"; do
+    if [ -n "${ahv_metaOptionMust["$aht_key"]}" -a -z "${AH_OPTIONS["$aht_key"]}" ]; then
+        if [ -n "${ahv_metaOptions["$aht_key"]}" ]; then
+            ahv_mustInfo="$ahv_mustInfo\n  $aht_key, ${ahv_metaOptions["$aht_key"]}"
+        else
+            ahv_mustInfo="$ahv_mustInfo\n  $aht_key"
+        fi
+    fi
+done
+if [ -n "$ahv_mustInfo" ]; then
+    AH_PrintInfo "Options are necessary: $ahv_mustInfo" >&2
+    exit 1
+fi

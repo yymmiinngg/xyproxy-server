@@ -1,0 +1,136 @@
+#!/bin/sh
+
+cmd=$(basename "$0")
+cmdfile=$(readlink -f "$0")
+cmdpath=$(dirname "$cmdfile")
+. "$cmdpath/environment"
+
+# get params before do something
+AH_ArgsMeta="
+# Usage: $cmd [options] { start | stop | restart | status | test }
+#
+# Command:
+#   start                   ### startup the server in deamon.
+#   stop                    ### shutdown the server.
+#   restart                 ### shutdown the server and startup server in deamon immediately.
+#   status                  ### display the server status.
+#   test                    ### startup the server not in deamon. (default)
+#
+# Options:
++   -c, --config-path       ### config path to make '$RunningConfigFile' for server, it must a child path in \$XYSVERSION_HOME/config/.
+#                           ### default is ''.
+?   -h, --help              ### display this help and exit.
+?   -v, --version           ### output version information and exit.
+"  # args meta
+AH_ShowHelp="--help"
+AH_ShowVersion="--version"
+AH_DefaultHelpMeta="no"
+AH_VersionInfo="XYServer version $XYSERVER_VERSION, released by monster (2020).\n$($cmdpath/v2ray/v2ray -version)"
+AH_StrictParam="yes"
+AH_LeastParamCount=0
+. "$XYSVERSION_HOME/lib/args-helper"
+# import util
+. "$XYSVERSION_HOME/script/xyutil"
+
+# get args
+command="test"
+if [ ${#AH_PARAMS[*]} -ne 0 ]; then
+    command="${AH_PARAMS[0]}"
+fi
+
+configPath="${AH_OPTIONS['-c']}"
+
+function startV2ray (){
+
+    # if input config path
+    if [ -n "$configPath" ]; then
+        echo "Use new config path '$configPath'"
+    else
+        # first read from vars
+        if [ -n "$(getVar $ConfigPathVarName)" ]; then
+            configPath="$(getVar $ConfigPathVarName)"
+            echo "Use latest config path '$configPath' from server home"
+        # second read from $RunningConfigFile
+        elif [ -f "$RunningConfigFile" ]; then 
+            configPath=$(cat "$RunningConfigFile" | grep "config-path" | awk -F ':' '{print $2}' | egrep -o "[^' ]+")
+            echo "Use latest config path '$configPath' from $RunningConfigFile"
+        fi
+    fi
+
+    # make $RunningConfigFile
+    # runuser $XYSERVER_USER -c "
+    $XYSVERSION_HOME/xyconfig $configPath -s
+    # "
+    if [ $? -ne 0 ]; then
+        echo "$RunningConfigFile not a good config"
+        exit 1
+    fi
+
+    # start cmd
+    startCmd="$XYSVERSION_HOME/v2ray/v2ray -config \"$RunningConfigFile\""
+    if [ "$1" = "deamon" ]; then
+        runuser $XYSERVER_USER -c "
+            nohup $startCmd > /dev/null 2>&1 &
+            sleep 0.5
+        "
+        if [ "yes" = "$(isRunning)" ]; then
+            echo V2ray started success, with pid $(getPID)
+            runuser $XYSERVER_USER -c "
+                . $XYSVERSION_HOME/script/xyutil
+                echo $(getPID) > $XYSERVER_PID
+                echo Make PID file $XYSERVER_PID: $(getPID)
+                saveVar \"$ConfigPathVarName\" \"$configPath\"
+                saveVar \"$CurrentRunningVersionVarName\" \"$XYSERVER_VERSION\"
+            "
+        else
+            echo "V2ray started fail"
+        fi
+    else
+        runuser $XYSERVER_USER -c "
+            $startCmd
+        "
+        if [ "yes" = "$(isRunning)" ]; then
+            runuser $XYSERVER_USER -c "
+                $cmdfile stop
+            "
+        fi
+    fi
+}
+
+function start() {
+    if [ "no" = "$(isRunning)" ]; then
+        startV2ray $1
+    else
+        printStatus
+        echo "Option canceled"
+    fi
+}
+
+function stop (){
+    if [ "no" = "$(isRunning)" ]; then
+        printStatus
+    else
+        local pid="$(getPID)"
+        runuser $XYSERVER_USER -c "
+            . $XYSVERSION_HOME/script/xyutil
+            kill -9 $pid
+            echo v2ray stoped by killed pid $pid
+            saveVar \"$CurrentRunningVersionVarName\" \"none\"
+        "
+    fi
+}
+
+if [ "start" == "$command" ]; then
+    start deamon
+elif [ "stop" == "$command" ]; then
+    stop
+elif [ "restart" == "$command" ]; then
+    stop
+    start deamon
+elif [ "test" == "$command" ]; then
+    start
+elif [ "status" == "$command" ]; then
+    printStatus
+else
+    echo Not supported $command
+fi

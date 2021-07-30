@@ -1,0 +1,36 @@
+#!/bin/sh
+
+envvars=(
+    XYSERVER_USER=$XYSERVER_USER
+    XYSERVER_HOME=$XYSERVER_HOME
+    XYSERVER_VERSION=$XYSERVER_VERSION
+    XYSERVER_LOGS=$XYSERVER_LOGS
+    XYSVERSION_HOME=$XYSVERSION_HOME
+    XYSERVER_PID=$XYSERVER_PID
+    XYSERVER_TEMP=$XYSERVER_HOME/tmp
+)
+
+ConfigPathVarName="ConfigPath"
+CurrentRunningVersionVarName="RunningVersion"
+RunningConfigFile="$XYSVERSION_HOME/config.runtime"
+
+# check vars
+for item in "${envvars[@]}"
+do
+    eval "$item"
+    key="${item%=*}"
+    value="${item#*=}"
+    if [ -z "$value" ]; then
+        echo "Not found environment variable $key, please set in file environment!"
+        exit 1
+    fi
+done
+
+# make dir
+mkdir -p $XYSERVER_TEMP
+chmod 775 $XYSERVER_TEMP
+chown $XYSERVER_USER $XYSERVER_TEMP
+
+if [ 0 -ne $? ]; then
+    exit 1
+fi

@@ -1,0 +1,109 @@
+#!/bin/bash
+
+cmd=$(basename "$0")
+cmdfile=$(readlink -f "$0")
+cmdpath=$(dirname "$cmdfile")
+. "$cmdpath/environment"
+
+# get params before do something
+AH_ArgsMeta="
+# Usage: $cmd <Version> [Options]
+#   Version                 ### the version you will switch to.
+# Options:
+?   -a, --auto-restart      ### auto restart service if service is running.
+?   -l, --list              ### list all version from server home.
+?   -r, --rich-list         ### rich list all version from server home.
+?   -V, --running-version   ### output running version information.
+?   -h, --help              ### display this help and exit.
+?   -v, --version           ### output version information and exit.
+"  # args meta
+AH_ShowHelp="--help"
+AH_ShowVersion="--version"
+AH_DefaultHelpMeta="no"
+AH_StrictParam="yes"
+AH_LeastParamCount=0
+# include args tools
+. "$XYSVERSION_HOME/lib/args-helper"
+# import util
+. "$XYSVERSION_HOME/script/xyutil"
+
+version="${AH_PARAMS[0]}"
+autoRestart="${AH_SWITCHS['-a']}"
+list="${AH_SWITCHS['-l']}"
+rich="${AH_SWITCHS['-r']}"
+runningVersion="${AH_SWITCHS['-V']}"
+hasDone="no"
+
+# get current version dir
+currentVerDir=$(readlink -f "$XYSERVER_HOME/current")
+curVersion=""
+if [ -d "$currentVerDir" ]; then
+    curVersion=$(basename "$currentVerDir")
+fi
+
+# switch version
+if [ -n "$version" ]; then
+    newVersionHome="$XYSERVER_HOME/$version"
+    if [ ! -d "$newVersionHome" ]; then
+        echo "The version home '$version' not found in '$XYSERVER_HOME'."
+        exit 1
+    fi
+    rm -r -f "$XYSERVER_HOME/current"
+    ln -s -f "$newVersionHome" "$XYSERVER_HOME/current"
+    ln -s -f "$XYSERVER_HOME/current/xyserver" "/usr/bin/xyserver"
+    ln -s -f "$XYSERVER_HOME/current/xyconfig" "/usr/bin/xyconfig"
+    ln -s -f "$XYSERVER_HOME/current/xyversion" "/usr/bin/xyversion"
+    ln -s -f "$XYSERVER_HOME/current/script/xyserver.service" "/usr/lib/systemd/system/xyserver.service"
+    echo "Reload service config."
+    systemctl daemon-reload
+    systemctl disable xyserver.service
+    systemctl enable xyserver.service
+    echo "Switch verison '$curVersion' -> '$version' done."
+    hasDone="yes"
+fi
+
+# auto reload by systemctl
+if [ -n "$autoRestart" ]; then
+    if [ "yes" = "$(isRunning)" ]; then
+        echo systemctl restart xyserver.service
+        systemctl restart xyserver.service
+    else
+        echo Not running
+    fi
+    hasDone="yes"
+fi
+
+# list all version
+if [ -n "$list" ] || [ -n "$rich" ]; then
+    for dir in $(ls "$XYSERVER_HOME")
+    do
+        if [ -d "$XYSERVER_HOME/$dir" ] && \
+           [ -d "$XYSERVER_HOME/$dir/config" ] && \
+           [ -f "$XYSERVER_HOME/$dir/xyserver" ] && \
+           [ -f "$XYSERVER_HOME/$dir/environment" ]
+        then
+            if [ -n "$rich" ]; then
+                echo "$dir -> $(readlink -f $XYSERVER_HOME/$dir)" 
+            else
+                echo "$dir"
+            fi
+        fi
+    done
+    hasDone="yes"
+fi
+
+# show current version information
+if [ -n "$runningVersion" ]; then
+    runningVer=$(getVar "$CurrentRunningVersionVarName")
+    if [ -n '$runningVer' ]; then
+        echo "$runningVer"
+    else
+        echo "none"
+    fi
+    hasDone="yes"
+fi
+
+# print current version
+if [ "no" == "$hasDone" ]; then
+    echo "$curVersion"
+fi

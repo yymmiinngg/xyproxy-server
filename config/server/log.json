@@ -1,0 +1,5 @@
+{
+    "loglevel": "warning",
+    "access": "$XYSERVER_LOGS/access.log",
+    "error": "$XYSERVER_LOGS/error.log"
+}

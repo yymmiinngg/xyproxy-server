@@ -1,0 +1,92 @@
+#!/bin/sh
+
+cmdpath=$(dirname $BASH_SOURCE)
+
+. "$cmdpath/../environment"
+. "$cmdpath/../lib/string-utils"
+
+function getPID(){
+    ps -ae | grep "v2ray" | awk '{print $1}'
+}
+
+function isRunning(){
+    if [ -z "$(getPID)" ]; then 
+        echo no
+    else
+        echo yes
+    fi
+}
+
+function printStatus(){
+    if [ "yes" = "$(isRunning)" ]; then
+        echo v2ray is running with pid $(getPID).
+    else
+        echo v2ray is not running.
+    fi
+}
+
+function isGoodVersion(){
+    local version="$1"
+    if [ -d "$XYSERVER_HOME/$version" ] && \
+       [ -d "$XYSERVER_HOME/$version/config" ] && \
+       [ -f "$XYSERVER_HOME/$version/xyserver" ] && \
+       [ -f "$XYSERVER_HOME/$version/xyconfig" ] && \
+       [ -f "$XYSERVER_HOME/$version/environment" ] && \
+       [ -d "$XYSERVER_HOME/$version/v2ray" ] && \
+       [ -f "$XYSERVER_HOME/$version/v2ray/v2ray" ] && \
+       [ "1" = "1" ]
+    then
+        echo "yes"
+    else
+        echo "no"
+    fi
+}
+
+function toSedStr(){
+    echo "$1" | sed s/"\\/"/"\\\\\/"/g
+}
+
+function saveVar(){
+    local key=$1
+    local value=$2
+    local varsFile="$XYSERVER_HOME/vars"
+    local tmpVarsFile="$XYSERVER_TEMP/vars.tmp"
+    if [ -f "$varsFile" ]; then
+        local hasDone="no"
+        for item in $(cat "$varsFile")
+        do
+            local ikey=$(STR_GetLeft "$item" '=')
+            local ivalue=$(STR_GetRightOutter "$item" '=')
+            if [ "$key" == "$ikey" ]; then
+                echo "$key=$value" >> "$tmpVarsFile"
+                hasDone="yes"
+            else
+                echo "$ikey=$ivalue" >> "$tmpVarsFile"
+            fi
+        done
+        if [ "no" = "$hasDone" ]; then
+            echo "$key=$value" >> "$tmpVarsFile"
+        fi
+    else
+        echo $key=$value > "$tmpVarsFile"
+    fi
+    mv -f "$tmpVarsFile" "$varsFile"
+}
+
+function getVar(){
+    local key="$1"
+    local varsFile="$XYSERVER_HOME/vars"
+    if [ ! -f "$varsFile" ]; then
+        return 1
+    fi
+    for item in $(cat "$varsFile")
+    do
+        local ikey=$(STR_GetLeft "$item" '=')
+        local ivalue=$(STR_GetRightOutter "$item" '=')
+        if [ "$key" == "$ikey" ]; then
+            echo "$ivalue"
+            return 0
+        fi
+    done
+    return 1
+}

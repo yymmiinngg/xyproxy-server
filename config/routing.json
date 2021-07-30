@@ -1,0 +1,4 @@
+{
+    "domainStrategy": "IPIfNonMatch",
+    "rules": []
+}
