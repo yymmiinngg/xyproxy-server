@@ -1,0 +1,20 @@
+{
+    "rules": [{
+            "type": "field",
+            "inboundTag": [
+                "bridge"
+            ],
+            "domain": [
+                "full:test.ailitonia.com"
+            ],
+            "outboundTag": "interconn"
+        },
+        {
+            "type": "field",
+            "inboundTag": [
+                "bridge"
+            ],
+            "outboundTag": "bridgeout"
+        }
+    ]
+}

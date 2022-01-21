@@ -162,9 +162,7 @@ chmod +x "$versionHome/xyconfig"
 chmod +x "$versionHome/xyserver"
 chmod +x "$versionHome/xyversion"
 chmod +x "$versionHome/v2ray/v2ray"
-chmod +x "$versionHome/v2ray/v2ray.sig"
 chmod +x "$versionHome/v2ray/v2ctl"
-chmod +x "$versionHome/v2ray/v2ctl.sig"
 
 # switch to new version
 echo Switch version to $version

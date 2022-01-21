@@ -1,0 +1,22 @@
+[{
+        "tag": "portalin",
+        "port": 11984,
+        "protocol": "dokodemo-door",
+        "settings": {
+            "address": "127.0.0.1",
+            "port": 11984,
+            "network": "tcp"
+        }
+    },
+    {
+        "port": 11985,
+        "tag": "interconn",
+        "protocol": "vmess",
+        "settings": {
+            "clients": [{
+                "id": "4f9cb5b8-02b5-44d5-af0a-d56ce25b828f",
+                "alterId": 0
+            }]
+        }
+    }
+]

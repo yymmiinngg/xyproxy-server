@@ -1,0 +1,17 @@
+{
+    "rules": [{
+            "type": "field",
+            "inboundTag": [
+                "portalin"
+            ],
+            "outboundTag": "portal"
+        },
+        {
+            "type": "field",
+            "inboundTag": [
+                "interconn"
+            ],
+            "outboundTag": "portal"
+        }
+    ]
+}

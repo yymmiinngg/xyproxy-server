@@ -1,0 +1,22 @@
+[{
+        "tag": "bridgeout",
+        "protocol": "freedom",
+        "settings": {
+            "redirect": "192.168.10.8:1194"
+        }
+    },
+    {
+        "protocol": "vmess",
+        "settings": {
+            "vnext": [{
+                "address": "8.134.100.66",
+                "port": 11985,
+                "users": [{
+                    "id": "4f9cb5b8-02b5-44d5-af0a-d56ce25b828f",
+                    "alterId": 0
+                }]
+            }]
+        },
+        "tag": "interconn"
+    }
+]

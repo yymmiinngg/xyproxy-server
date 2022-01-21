@@ -1,0 +1,6 @@
+{
+    "bridges": [{
+        "tag": "bridge",
+        "domain": "test.ailitonia.com"
+    }]
+}
